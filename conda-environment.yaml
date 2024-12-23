@@ -1,0 +1,32 @@
+name: pokemon_bot
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+  - bioconda
+  - anaconda
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - matplotlib
+  - datasets
+  - pytorch
+  - psycopg2
+  - torchvision
+  - torchaudio
+  - pytorch-cuda
+  - transformers
+  - sqlalchemy
+  - discord.py
+  - langchain
+  - langchain-core
+  - langchain-community
+  - sentence-transformers
+  - pillow
+  - pip
+  - pip:
+    - python-dotenv
+    - cohere
+    - qdrant_client
+    - fastembed

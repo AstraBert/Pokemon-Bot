@@ -1,0 +1,4 @@
+.env
+qdrant_storage/
+pokemon_images/
+__pycache__/
