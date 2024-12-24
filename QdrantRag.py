@@ -6,6 +6,7 @@ import os
 from datasets import load_dataset
 from dotenv import load_dotenv
 import numpy as np
+import uuid
 from PIL import Image
 from fastembed import SparseTextEmbedding
 import cohere
@@ -88,6 +89,39 @@ def upload_images_to_qdrant(client: QdrantClient, collection_name: str, vectorsf
     except Exception as e:
         return False
 
+class SemanticCache:
+    def __init__(self, client: QdrantClient, text_encoder: SentenceTransformer, collection_name: str, threshold: float = 0.75):
+        self.client = client
+        self.text_encoder = text_encoder
+        self.collection_name = collection_name
+        self.threshold = threshold
+    def upload_to_cache(self, question: str, answer: str):
+        docs = {"question": question, "answer": answer}
+        point_id = str(uuid.uuid4())
+        self.client.upsert(
+            collection_name=self.collection_name,
+            points=[
+                models.PointStruct(
+                    id=point_id,
+                    vector=self.text_encoder.encode(docs["question"]).tolist(),
+                    payload=docs,
+                )
+            ],
+        )
+    def search_cache(self, question: str, limit: int = 5):
+        vector = self.text_encoder.encode(question).tolist()
+        search_result = self.client.search(
+            collection_name=self.collection_name,
+            query_vector=vector,
+            query_filter=None,
+            limit=limit,
+        )
+        payloads = [hit.payload["answer"] for hit in search_result if hit.score > self.threshold]
+        if len(payloads) > 0:
+            return payloads[0]
+        else:
+            return ""
+
 
 class NeuralSearcher:
     def __init__(self, text_collection_name: str, image_collection_name: str, client: QdrantClient, text_encoder: SentenceTransformer , image_encoder: AutoModel, image_processor: AutoImageProcessor, sparse_encoder: SparseTextEmbedding):
@@ -168,3 +202,11 @@ qdrant_client.recreate_collection(
     ),
 )
 upload_images_to_qdrant(qdrant_client, "pokemon_images", "data/vector_pokemon.npy", labels)
+
+qdrant_client.recreate_collection(
+    collection_name="semantic_cache",
+    vectors_config=models.VectorParams(
+        size=768,  # Vector size is defined by used model
+        distance=models.Distance.COSINE,
+    ),
+)

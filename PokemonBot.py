@@ -6,7 +6,7 @@ import random as r
 from ChatMemory import PGClient, ConversationHistory
 from ChatCohere import chat_completion, summarize
 from PokemonCards import choose_random_cards
-from QdrantRag import NeuralSearcher, qdrant_client, encoder, image_encoder, processor, sparse_encoder
+from QdrantRag import NeuralSearcher, SemanticCache, qdrant_client, encoder, image_encoder, processor, sparse_encoder
 load_dotenv()
 
 CHANNEL_ID = int(os.getenv("channel_id"))
@@ -19,6 +19,7 @@ pg_conn_str = f"postgresql://{pg_user}:{pg_psw}@localhost:5432/{pg_db}"
 pg_client = PGClient(pg_conn_str)
 
 searcher = NeuralSearcher("pokemon_texts", "pokemon_images", qdrant_client, encoder, image_encoder, processor, sparse_encoder)
+semantic_cache = SemanticCache(qdrant_client, encoder, "semantic_cache", 0.75)
 
 usr_id = r.randint(1,10000)
 convo_hist = ConversationHistory(pg_client, usr_id)
@@ -55,13 +56,19 @@ async def on_message(message):
             print(
                 f"Got content {message.content} from {message.author}"
             )
-            context_search = searcher.search_text(message.content)
-            reranked_context = searcher.reranking(message.content, context_search)
-            context = "\n\n-----------------\n\ns".join(reranked_context)
-            final_prompt = f"USER QUERY:\n\n{message.content}\n\nCONTEXT:\n\n{context}"
-            convo_hist.add_message(role="user", content=final_prompt)
-            response = chat_completion(convo_hist.get_conversation_history())
-            await message.channel.send(response)
+            answer = semantic_cache.search_cache(message.content)
+            if answer != "":
+                await message.channel.send(answer)
+            else:
+                context_search = searcher.search_text(message.content)
+                reranked_context = searcher.reranking(message.content, context_search)
+                context = "\n\n-----------------\n\n".join(reranked_context)
+                final_prompt = f"USER QUERY:\n\n{message.content}\n\nCONTEXT:\n\n{context}"
+                convo_hist.add_message(role="user", content=final_prompt)
+                response = chat_completion(convo_hist.get_conversation_history())
+                convo_hist.add_message(role="assistant", content=response)
+                semantic_cache.upload_to_cache(message.content, response)
+                await message.channel.send(response)
         else:
             if message.content.startswith("!whatpokemon"):
                 if message.attachments:
