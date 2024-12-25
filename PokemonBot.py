@@ -63,8 +63,8 @@ async def on_message(message):
                 context_search = searcher.search_text(message.content)
                 reranked_context = searcher.reranking(message.content, context_search)
                 context = "\n\n-----------------\n\n".join(reranked_context)
-                final_prompt = f"USER QUERY:\n\n{message.content}\n\nCONTEXT:\n\n{context}"
-                convo_hist.add_message(role="user", content=final_prompt)
+                convo_hist.add_message(role="user", content=message.content)
+                convo_hist.add_message(role="assistant", content="Context:\n\n"+context)
                 response = chat_completion(convo_hist.get_conversation_history())
                 convo_hist.add_message(role="assistant", content=response)
                 semantic_cache.upload_to_cache(message.content, response)
@@ -89,7 +89,8 @@ async def on_message(message):
                     await attachment.save(save_path)
                     
                     result = searcher.search_image(save_path)
-                    await message.channel.send("You Pokemon might be: " + result[0])
+                    results = "\n".join(result)
+                    await message.channel.send("You Pokemon might be:\n" + results)
                 else:
                     await message.channel.send("You need to attach an image of a Pokemon to use this command")   
             elif message.content.startswith("!cardpackage"):
