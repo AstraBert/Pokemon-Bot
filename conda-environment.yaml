@@ -19,9 +19,6 @@ dependencies:
   - transformers
   - sqlalchemy
   - discord.py
-  - langchain
-  - langchain-core
-  - langchain-community
   - sentence-transformers
   - pillow
   - pip

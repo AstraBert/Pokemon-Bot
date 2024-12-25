@@ -156,7 +156,7 @@ class NeuralSearcher:
         results = co.rerank(model="rerank-v3.5", query=text, documents=search_result, top_n = 3)
         ranked_results = [search_result[results.results[i].index] for i in range(3)]
         return ranked_results
-    def search_image(self, image: str, limit: int = 1):
+    def search_image(self, image: str, limit: int = 5):
         img = Image.open(image)
         inputs = self.image_processor(images=img, return_tensors="pt").to(device)
         with torch.no_grad():
@@ -167,8 +167,9 @@ class NeuralSearcher:
             query_filter=None,
             limit=limit,
         )
-        payloads = [hit.payload["label"] for hit in search_result]
+        payloads = [f"- {hit.payload['label']} with score {hit.score}" for hit in search_result]
         return payloads
+
 
 qdrant_client.recreate_collection(
     collection_name="pokemon_texts",
